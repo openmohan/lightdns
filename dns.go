@@ -1,7 +1,6 @@
 package lightdns
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/google/gopacket"
@@ -26,7 +25,8 @@ type UdpConnection struct {
 }
 
 //Create new DNSServer
-func NewDNSServer(port int, handler Handler) *DNSServer {
+func NewDNSServer(port int) *DNSServer {
+	handler := NewServeMux()
 	return &DNSServer{port: port, handler: handler}
 }
 
@@ -61,6 +61,42 @@ func (dns *DNSServer) StartToServe() {
 	dns.serve(udpConnection)
 }
 
+func generateHandler(records map[string]string) func(w *UdpConnection, r *layers.DNS) {
+	return func(w *UdpConnection, r *layers.DNS) {
+		replyMess := r
+		var dnsAnswer layers.DNSResourceRecord
+		dnsAnswer.Type = layers.DNSTypeA
+		ip, _ := records[string(r.Questions[0].Name)]
+		a, _, _ := net.ParseCIDR(ip + "/24")
+		dnsAnswer.Type = layers.DNSTypeA
+		dnsAnswer.IP = a
+		dnsAnswer.Name = []byte("test")
+		dnsAnswer.Type = layers.DNSTypeA
+		dnsAnswer.Class = layers.DNSClassIN
+		replyMess.ID = r.ID
+		replyMess.QR = true
+		replyMess.ANCount = 1
+		replyMess.OpCode = layers.DNSOpCodeNotify
+		r.Answers = append(replyMess.Answers, dnsAnswer)
+		if r.OpCode == layers.DNSOpCodeQuery {
+			replyMess.RD = r.RD
+		}
+		replyMess.ResponseCode = layers.DNSResponseCodeNoErr
+		buf := gopacket.NewSerializeBuffer()
+		opts := gopacket.SerializeOptions{} // See SerializeOptions for more details.
+		err := replyMess.SerializeTo(buf, opts)
+		if err != nil {
+			panic(err)
+		}
+		w.Write(buf.Bytes())
+	}
+}
+
+func (dns *DNSServer) AddZoneData(zone string, records map[string]string) {
+	serveMuxCurrent := dns.handler.(*serveMux)
+	serveMuxCurrent.HandleFunc(zone, generateHandler(records))
+}
+
 func (dns *DNSServer) serve(u *UdpConnection) {
 	for {
 		tmp := make([]byte, 1024)
@@ -71,25 +107,17 @@ func (dns *DNSServer) serve(u *UdpConnection) {
 		dnsPacket := packet.Layer(layers.LayerTypeDNS)
 		tcp, _ := dnsPacket.(*layers.DNS)
 		dns.handler.serveDNS(u, tcp)
-		fmt.Println(tcp.OpCode)
 	}
 }
 
 func (srv *serveMux) serveDNS(u *UdpConnection, request *layers.DNS) {
-	fmt.Println("tetssss")
 	var h Handler
-	fmt.Println("sss")
 	if len(request.Questions) < 1 { // allow more than one question
-		fmt.Println("Nothing exists")
 		return
 	}
-	fmt.Println(string(request.Questions[0].Name))
 	if h = srv.match(string(request.Questions[0].Name), request.Questions[0].Type); h == nil {
-		fmt.Println("retuernd")
 	}
-	fmt.Println("retuernd")
 	if h == nil {
-		fmt.Println("no ter")
 	} else {
 		h.serveDNS(u, request)
 	}
@@ -101,10 +129,6 @@ func (udp *UdpConnection) Write(b []byte) error {
 }
 
 func (mux *serveMux) match(q string, t layers.DNSType) Handler {
-	fmt.Println("22222")
-	fmt.Println(mux)
-	fmt.Println(q)
-
 	var handler Handler
 	b := make([]byte, len(q)) // worst case, one label of length q
 	off := 0
@@ -117,7 +141,6 @@ func (mux *serveMux) match(q string, t layers.DNSType) Handler {
 				b[i] |= 'a' - 'A'
 			}
 		}
-		fmt.Println(string(b[:l]))
 		if h, ok := mux.handler[string(b[:l])]; ok { // causes garbage, might want to change the map key
 			if uint16(t) != uint16(43) {
 				return h
