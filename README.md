@@ -17,7 +17,8 @@ This is a light weight DNS Server which serves A type record for now.
 
 ## Example
 If the records data available we can code it and Add the zone data
-```	var googleRecords = map[string]string{
+```	
+	var googleRecords = map[string]string{
 		"mail.google.com":  "192.168.0.2",
 		"paste.google.com": "192.168.0.3",
 	}
