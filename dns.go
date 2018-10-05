@@ -60,9 +60,9 @@ func (srv *serveMux) serveDNS(u *udpConnection, request *layers.DNS) {
 }
 
 //StartToServe - creates a UDP connection and uses the connection to serve DNS
-func (dns *DNSServer) StartToServe() {
+func (dns *DNSServer) StartAndServe() {
 	addr := net.UDPAddr{
-		Port: 1234,
+		Port: dns.port,
 		IP:   net.ParseIP("127.0.0.1"),
 	}
 	l, _ := net.ListenUDP("udp", &addr)
@@ -174,8 +174,12 @@ func handleATypeQuery(w *udpConnection, r *layers.DNS, records map[string]string
 	dnsAnswer.Type = layers.DNSTypeA
 	var ip string
 	var err error
+	var ok bool
 	if lookupFunc == nil {
-		ip, _ = records[string(r.Questions[0].Name)]
+		ip, ok = records[string(r.Questions[0].Name)]
+		if !ok {
+			//Todo: Log no data present for the IP and handle:todo
+		}
 	} else {
 		ip, err = lookupFunc(string(r.Questions[0].Name))
 	}

@@ -40,7 +40,7 @@ Define a lookup function in the format
 	}
 	dns.AddZoneData("amazon.com", nil, lookupFunc, lightdns.DNSForwardLookupZone)
 ```
-
+4. Start the DNS Server by `dns.StartAndServe()`
 
 # Complete Example
 ```
@@ -78,7 +78,7 @@ func main() {
 	/* Incase if the records are not static or to be taken from DB or from any other sources
 	lookupFunc method can be used.append*/
 	dns.AddZoneData("amazon.com", nil, lookupFunc, lightdns.DNSForwardLookupZone)
-	dns.StartToServe()
+	dns.StartAndServe()
 }
 
 ```
@@ -92,6 +92,7 @@ func main() {
  1. Use goroutines for optimizing the speed
  2. Unit Test Cases
  3. Logging mechanism for monitoring and debugging
+ 4. Error handling
 
 
 ## Contributing
