@@ -1,4 +1,4 @@
-module lightdns
+module github.com/openmohan/lightdns
 
 go 1.13
 
